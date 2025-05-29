@@ -14,6 +14,8 @@ def ping(server, resolver):
     resolver.resolve('google.com')
   except dns.resolver.LifetimeTimeout:
     return False
+  except dns.resolver.NoNameservers:
+    return False
 
   return True
 
