@@ -1,36 +1,56 @@
 #!/usr/bin/env python3
-import dns.resolver
+import os
 import requests
 import time
 import traceback
+from typing import Optional
+from dataclasses import dataclass
 from datetime import datetime
 
-resolver = dns.resolver.Resolver()
+from dns.resolver import Resolver
+from dns.nameserver import Nameserver, Do53Nameserver
 
-def ping(server, resolver):
-  resolver.nameservers = [server]
+class Server:
+  def __init__(self, addr: str):
+    self.addr = addr
+    self.nameserver = Do53Nameserver(addr)
+    self.restart_uri = f'http://%s:5380/restart' % addr
+    self.resolver = Resolver()
+    self.resolver.nameservers = [self.nameserver]
 
-  try:
-    resolver.resolve('google.com')
-  except dns.resolver.LifetimeTimeout:
-    return False
-  except dns.resolver.NoNameservers:
-    return False
+  def __str__(self) -> str:
+    return self.addr
 
-  return True
+  def __repr__(self) -> str:
+    return f"Server(addr='%s',restart_uri='%s')" % (self.addr, self.restart_uri)
 
-def restart(server):
-  try:
-    requests.put(f'http://%s:5380/restart' % server)
-  except Exception:
-    print('restart failed')
-    print(traceback.format_exc())
+  def restart(self) -> Optional[Exception]:
+    try:
+      requests.put(self.restart_uri)
+    except Exception as e:
+      return e
 
-servers = ['192.168.1.2', '192.168.1.9']
+  def alive(self) -> bool:
+    try:
+      self.resolver.resolve('google.com')
+    except dns.resolver.LifetimeTImeout:
+      return False
+    except dns.resolver.NoNameservers:
+      return False
+
+    return True
+
+
+def read_servers(value: str) -> list[Server]:
+  return [Server(ns) for ns in value.split(';') if ns != '']
+
+
+timeout = int(os.environ.get('TIMEOUT', 15))
+servers = read_servers(os.environ.get('SERVERS', '192.168.1.2;192.168.1.9'))
+
 
 while True:
   for server in servers:
-
     print(
       f'%s: Pinging server %s... ' % (
         datetime.now().isoformat(timespec='seconds'),
@@ -38,10 +58,10 @@ while True:
       ),
       end=''
     )
-    if not ping(server, resolver):
+    if not server.alive():
       print('failed, rebooting.')
-      restart(server)
+      server.restart()
     else:
       print('succeeded.')
 
-  time.sleep(15)
+  time.sleep(timeout)
