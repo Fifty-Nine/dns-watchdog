@@ -7,7 +7,7 @@ from typing import Optional
 from dataclasses import dataclass
 from datetime import datetime
 
-from dns.resolver import Resolver
+from dns.resolver import Resolver, LifetimeTimeout, NoNameservers
 from dns.nameserver import Nameserver, Do53Nameserver
 
 class Server:
@@ -33,9 +33,9 @@ class Server:
   def alive(self) -> bool:
     try:
       self.resolver.resolve('google.com')
-    except dns.resolver.LifetimeTImeout:
+    except LifetimeTimeout:
       return False
-    except dns.resolver.NoNameservers:
+    except NoNameservers:
       return False
 
     return True
