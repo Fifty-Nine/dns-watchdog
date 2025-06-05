@@ -30,9 +30,9 @@ class Server:
     except Exception as e:
       return e
 
-  def alive(self) -> bool:
+  def alive(self, name: Optional[str]) -> bool:
     try:
-      self.resolver.resolve('google.com')
+      self.resolver.resolve(name if name is not None else 'google.com')
     except LifetimeTimeout:
       return False
     except NoNameservers:
@@ -47,6 +47,7 @@ def read_servers(value: str) -> list[Server]:
 
 timeout = int(os.environ.get('TIMEOUT', 15))
 servers = read_servers(os.environ.get('SERVERS', '192.168.1.2;192.168.1.9'))
+test_name = os.environ.get('TEST_NAME')
 
 
 while True:
@@ -58,7 +59,7 @@ while True:
       ),
       end=''
     )
-    if not server.alive():
+    if not server.alive(test_name):
       print('failed, rebooting.')
       server.restart()
     else:
